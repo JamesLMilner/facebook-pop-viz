@@ -1,0 +1,118 @@
+<doctype HTML>
+<html>
+<head>
+    <style>
+        #map {
+            height: 100%;
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+<script src="../src/node_modules/geotiff/dist/geotiff.min.js"></script>
+<script src="../src/node_modules/plotty/dist/plotty.min.js"></script>
+<script src="../src/node_modules/openlayers/dist/ol-debug.js"></script>
+<!-- <canvas id="plot"></canvas> -->
+<div id="map"></div>
+<script>
+    console.log("Starting script");
+    var url = "/data/hrsl_mwi_downsample.tif"
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', url, true);
+    xhr.responseType = 'arraybuffer';
+    xhr.onload = function(e) {
+      console.log("Loading GeoTIFF...")
+      var tiff = GeoTIFF.parse(this.response);
+      var image = tiff.getImage();
+      var metadata = image.getGDALMetadata()
+
+      var extent = [
+                    metadata.minX, metadata.minY,
+                    metadata.maxX, metadata.maxY
+                   ]  //[15.05, 47.75, 15.40, 47.95]
+      console.log(extent);
+      var plot;
+      var map = null;
+      var canvas;
+
+      //var rasterInput = {window: [0, 0, image.getWidth(), image.getHeight()], samples: [0]}
+      image.readRasters({}, function(rasters) {
+        var raster = rasters[0]
+        canvas = document.createElement("canvas");
+        plot = new plotty.plot({
+          canvas: canvas,
+          data: raster,
+          width: image.getWidth(),
+          height: image.getHeight(),
+          domain: [0, 18],
+          colorScale: "yignbu"
+        });
+        plot.setNoDataValue(-1);
+        // plot.setClamp(false);
+
+        plot.render();
+        var projection = ol.proj.get('EPSG:4326');
+        var centerPos = [parseFloat(extent[0] + (extent[2] - extent[0])).toFixed(5), parseFloat(extent[1] + (extent[3] - extent[1])).toFixed(5) ];
+        console.log(centerPos)
+        var attribution = new ol.Attribution({
+          html: 'Tiles &copy; <a href="http://services.arcgisonline.com/ArcGIS/' +
+              'rest/servicesWorld_Light_Gray_Base/MapServer">ArcGIS</a>'
+        });
+
+        map = new ol.Map({
+          target: document.getElementById("map"),
+          controls: ol.control.defaults({attribution: false})   ,
+          layers: [
+            new ol.layer.Tile({
+                source: new ol.source.XYZ({
+                  attributions: [attribution],
+                  url: 'http://server.arcgisonline.com/ArcGIS/rest/services/' +
+                      '/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}'
+                })
+            }),
+            new ol.layer.Image({
+              source: new ol.source.ImageStatic({
+                url: canvas.toDataURL("image/png"),
+                imageExtent: extent
+              }),
+              extent: extent
+            })
+          ],
+          view: new ol.View({
+            center: [0,0],
+            projection: projection,
+            zoom: 5,
+            // extent: extent
+            })
+        });
+
+        //map.getView().setCenter(ol.proj.transform(centerPos, 'EPSG:4326', 'EPSG:3857'));
+      });
+
+
+
+    //   console.log(image.getGeoKeys())
+    //   var rasters = image.readRasters();
+    //   var canvas = document.getElementById("plot");
+    //   canvas.width = image.getWidth();
+    //   canvas.height = image.getHeight();
+    //   var plot = new plotty.plot({
+    //     canvas: canvas,
+    //     data: rasters[0],
+    //     width: image.getWidth(),
+    //     height: image.getHeight(),
+    //     domain: [0, 26],
+    //     colorScale: "viridis"
+    //   });
+    //   plot.render();
+    }
+    xhr.send();
+
+
+
+
+
+
+</script>
+</body>
+</html>
