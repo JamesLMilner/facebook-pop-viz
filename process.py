@@ -59,13 +59,27 @@ def downsample_output (input_file, downsample):
     resampled.SetGeoTransform( transform )
     resampled.SetProjection ( ds_in.GetProjectionRef() )
 
+
     # We can set some meta data for use in the client
-    minx = geoTransform[0]
-    maxy = geoTransform[3]
-    maxx = minx + geoTransform[1] * resampled.RasterXSize
-    miny = maxy + geoTransform[5] * resampled.RasterYSize
+    transform = resampled.GetGeoTransform()
+    width = resampled.RasterXSize
+    height = resampled.RasterYSize
+
+    minx = transform[0]
+    maxx = transform[0] + width * transform[1] + height * transform[2]
+
+    miny = transform[3] + width * transform[4] + height * transform[5]
+    maxy = transform[3]
+
     resampled.SetMetadata ({"minX": str(minx), "maxX": str(maxx),
-                            "minY": str(miny), "maxY": str(maxy) })
+                        "minY": str(miny), "maxY": str(maxy) })
+
+    print "Extent: "
+    print "Min X", str(minx)
+    print "Min Y", str(miny)
+    print "Max X", str(maxx)
+    print "Max Y", str(maxy)
+
 
     gdal.RegenerateOverviews ( ds_out.GetRasterBand(1), [ resampled.GetRasterBand(1) ], 'mode' )
 
@@ -90,7 +104,8 @@ if __name__ == '__main__':
             print "Resampling", input_tif
 
             single_band(input_tif, input_tif.replace(".tif", "") + "_oneband.tif")
-            downsample_output(input_tif,  5)
+            downsample = 3
+            downsample_output(input_tif,  downsample)
             print "...Done!"
 
     except:

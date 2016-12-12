@@ -1,10 +1,13 @@
-<doctype HTML>
+    <doctype HTML>
 <html>
 <head>
     <style>
-        #map {
+        html, body, #map {
             height: 100%;
             width: 100%;
+            background-color: black;
+            padding: 0px;
+            margin: 0px;
         }
     </style>
 </head>
@@ -44,40 +47,58 @@
           data: raster,
           width: image.getWidth(),
           height: image.getHeight(),
-          domain: [0, 18],
-          colorScale: "yignbu"
+          domain: [0, 12],
+          colorScale: "copper"
         });
-        plot.setNoDataValue(-1);
-        // plot.setClamp(false);
+        plot.setClamp(true,true);
+        plot.setNoDataValue(0);
 
         plot.render();
         var projection = ol.proj.get('EPSG:4326');
-        var centerPos = [parseFloat(extent[0] + (extent[2] - extent[0])).toFixed(5), parseFloat(extent[1] + (extent[3] - extent[1])).toFixed(5) ];
+        var centerPos = [parseFloat(extent[0]).toFixed(5), parseFloat(extent[1]).toFixed(5) ];
         console.log(centerPos)
         var attribution = new ol.Attribution({
           html: 'Tiles &copy; <a href="http://services.arcgisonline.com/ArcGIS/' +
               'rest/servicesWorld_Light_Gray_Base/MapServer">ArcGIS</a>'
         });
 
+        canvas.getContext("webgl").fillStyle = 'rgba(255, 255, 255, 0)';
+        mapLayers = [
+          new ol.layer.Tile({
+              source: new ol.source.XYZ({
+                attributions: [attribution],
+                url: 'http://server.arcgisonline.com/ArcGIS/rest/services/' +
+                  '/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}'
+              }),
+              opacity: 1
+          }),
+          new ol.layer.Tile({
+              source: new ol.source.XYZ({
+                attributions: [attribution],
+                url: 'http://server.arcgisonline.com/ArcGIS/rest/services/' +
+                  '/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}'
+              }),
+              opacity: 0.2
+          }),
+          new ol.layer.Image({
+            source: new ol.source.ImageStatic({
+              url: canvas.toDataURL("image/png"),
+              imageExtent: extent
+            }),
+            extent: extent,
+            opacity: 1
+          })
+        ]
+
+        var zIndex = 3
+        mapLayers.forEach(function(layer){
+            layer.setZIndex(zIndex--);
+        });
+
         map = new ol.Map({
           target: document.getElementById("map"),
           controls: ol.control.defaults({attribution: false})   ,
-          layers: [
-            new ol.layer.Tile({
-                source: new ol.source.XYZ({
-                  attributions: [attribution],
-                  url: 'http://server.arcgisonline.com/ArcGIS/rest/services/' +
-                      '/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}'
-                })
-            }),
-            new ol.layer.Image({
-              source: new ol.source.ImageStatic({
-                url: canvas.toDataURL("image/png"),
-                imageExtent: extent
-              }),
-              extent: extent
-            })
-          ],
+          layers: mapLayers,
           view: new ol.View({
             center: [0,0],
             projection: projection,
