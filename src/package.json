@@ -1,11 +1,30 @@
 {
-  "name": "src",
+  "name": "facebook-pop-viz",
   "version": "1.0.0",
-  "description": "",
+  "description": "Visualising Facebook population data on the web",
   "main": "index.js",
+  "dependencies": {
+    "geotiff": "^0.3.5",
+    "openlayers": "^3.20.0",
+    "plotty": "^0.1.2"
+  },
+  "devDependencies": {},
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "author": "",
-  "license": "ISC"
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/JamesMilnerUK/facebook-pop-viz.git"
+  },
+  "keywords": [
+    "data",
+    "viz",
+    "population"
+  ],
+  "author": "James Milner",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/JamesMilnerUK/facebook-pop-viz/issues"
+  },
+  "homepage": "https://github.com/JamesMilnerUK/facebook-pop-viz#readme"
 }
