@@ -1,8 +1,9 @@
 from osgeo import gdal, ogr
-from os import remove
-from os.path import isfile
+from os import remove, getcwd
+from os.path import isfile, join, basename
 import sys
 import traceback
+from shutil import copyfile
 
 # this allows GDAL to throw Python Exceptions
 gdal.UseExceptions()
@@ -93,6 +94,8 @@ def downsample_output (input_file, downsample):
     except OSError:
         pass
 
+    return output_file
+
 
 if __name__ == '__main__':
 
@@ -105,11 +108,11 @@ if __name__ == '__main__':
 
             single_band(input_tif, input_tif.replace(".tif", "") + "_oneband.tif")
             downsample = 3
-            downsample_output(input_tif,  downsample)
+            output_file = downsample_output(input_tif,  downsample)
+            copyfile(output_file, join(getcwd(), "data", basename(output_file)))
             print "...Done!"
 
     except:
         error = sys.exc_info()[0]
         print "There was an error: ", error, "\n"
         print traceback.format_exc()
-
