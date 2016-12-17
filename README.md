@@ -20,6 +20,11 @@ You can download the data manually or use the convinence script provided as such
 
 This will download and unzip the files to a folder entitled 'rawdata'
 
+## Prequistes for Python Scripts
+
+  * GDAL
+  * GDAL Python bindings
+
 ## Process the Data
 
 Process the data as such:
