@@ -6,7 +6,8 @@
   "dependencies": {
     "geotiff": "^0.3.5",
     "openlayers": "^3.20.0",
-    "plotty": "^0.1.2"
+    "plotty": "^0.1.2",
+    "whatwg-fetch": "^2.0.1"
   },
   "devDependencies": {},
   "scripts": {

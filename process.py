@@ -2,6 +2,7 @@ from osgeo import gdal, ogr
 from os import remove, getcwd
 from os.path import isfile, join, basename
 import sys
+import numpy as np
 import traceback
 from shutil import copyfile
 
@@ -25,11 +26,11 @@ def single_band( input_file, output_file ):
     dst_ds = driver.Create(output_file, xsize, ysize, 1, gdal.GDT_Byte )
     dst_ds.SetGeoTransform(ds.GetGeoTransform())
     dst_ds.SetProjection(ds.GetProjection())
-    array = band.ReadAsArray()
     band = dst_ds.GetRasterBand(1)
+    array = band.ReadAsArray(0,0,xsize,ysize).astype(np.float32)
     band.WriteArray(array)
     dst_ds = None
-
+    return output_file
 
 def downsample_output (input_file, downsample):
     ds_in = gdal.Open(input_file)
@@ -38,7 +39,7 @@ def downsample_output (input_file, downsample):
     output_file = input_tif.replace(".tif", "") + "_downsample.tif"
 
     band = ds_in.GetRasterBand(1)
-    high_res = band.ReadAsArray()
+    high_res = band.ReadAsArray(0,0,ds_in.RasterXSize, ds_in.RasterYSize).astype(np.float32)
     random_prefix = ds_in.RasterCount
 
     # Check for a temporary file
@@ -72,15 +73,16 @@ def downsample_output (input_file, downsample):
     miny = transform[3] + width * transform[4] + height * transform[5]
     maxy = transform[3]
 
-    resampled.SetMetadata ({"minX": str(minx), "maxX": str(maxx),
-                        "minY": str(miny), "maxY": str(maxy) })
+    resampled.SetMetadata({
+        "minX": str(minx), "maxX": str(maxx),
+        "minY": str(miny), "maxY": str(maxy)
+    })
 
     print "Extent: "
     print "Min X", str(minx)
     print "Min Y", str(miny)
     print "Max X", str(maxx)
     print "Max Y", str(maxy)
-
 
     gdal.RegenerateOverviews ( ds_out.GetRasterBand(1), [ resampled.GetRasterBand(1) ], 'mode' )
 
@@ -105,12 +107,25 @@ if __name__ == '__main__':
         else:
             input_tif = str(sys.argv[1])
             print "Resampling", input_tif
+            
+            try:
+                oneband = input_tif.replace(".tif", "") + "_oneband.tif"
+                single_band(input_tif, oneband)
+            except MemoryError:
+                print "Raster was too large to to put into memory during extract to single band"
+            
+            if len(sys.argv) != 3:
+                downsample = 5
+            else:
+                downsample = int(sys.argv[2])
 
-            single_band(input_tif, input_tif.replace(".tif", "") + "_oneband.tif")
-            downsample = 3
-            output_file = downsample_output(input_tif,  downsample)
-            copyfile(output_file, join(getcwd(), "data", basename(output_file)))
-            print "...Done!"
+            try:                    
+                output_file = downsample_output(input_tif,  downsample)
+                copyfile(output_file, join(getcwd(), "data", basename(output_file)))
+                print "...Done!"
+            except MemoryError:
+                print "Raster was too large to put into memory during resampling"    
+           
 
     except:
         error = sys.exc_info()[0]

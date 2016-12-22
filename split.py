@@ -128,22 +128,20 @@ def split(file_name, n):
         output_file_base = raw_file_name + "_" + str(tile_num) + ".tif"
         output_file = os.path.join(OUTPUT_FOLDER, raw_file_name, output_file_base)
 
-        dst_ds = driver.Create(output_file,
-                               new_cols,
-                               new_rows,
-                               1,
-                               gdal.GDT_Float32)
+        tile_dataset = driver.Create(
+            output_file,
+            new_cols,
+            new_rows,
+            1,
+            gdal.GDT_Float32
+        )
 
         # Writing output raster
-        dst_ds.GetRasterBand(1).WriteArray(data)
-
-        # Set file-level metadata
-        tile_extent = get_extent(dataset)
-        dataset.SetMetadata(tile_extent)
+        tile_dataset.GetRasterBand(1).WriteArray(data)
 
         # Setting extension of output raster
         # top left x, w-e pixel resolution, rotation, top left y, rotation, n-s pixel resolution
-        dst_ds.SetGeoTransform(new_transform)
+        tile_dataset.SetGeoTransform(new_transform)
 
         wkt = dataset.GetProjection()
 
@@ -151,16 +149,21 @@ def split(file_name, n):
         srs = osr.SpatialReference()
         srs.ImportFromWkt(wkt)
         export_prj = srs.ExportToWkt()
-        dst_ds.SetProjection(export_prj)
+        tile_dataset.SetProjection(export_prj)
+
+        # Set file-level metadata
+        tile_extent = get_extent(tile_dataset)
+  
+        tile_dataset.SetMetadata(tile_extent)
+        print "Metadata set: ", tile_dataset.GetMetadata()
 
         # Close output raster dataset
-        dst_ds = None
+        tile_dataset = None
 
         # Set our metadata info for this tile
-        metadata[tile_num] = extent
+        metadata[tile_num] = tile_extent
         metadata[tile_num]["fileSize"] = os.path.getsize(output_file)
-
-
+        metadata[tile_num]["path"] = output_file
 
         tile_num += 1
 
@@ -174,10 +177,10 @@ if __name__ == '__main__':
             print "Input file not specified"
         else:
             filename = str(sys.argv[1])
-            n = int(sys.argv[2])
-
-            if not n:
-                n = 3 # 3x3 grid
+            if len(sys.argv) == 3:
+                n = int(sys.argv[2])
+            else:
+                n = 3
 
             split(filename, n)
             print "...Done!"

@@ -18,99 +18,144 @@
 <!-- <canvas id="plot"></canvas> -->
 <div id="map"></div>
 <script>
+
     console.log("Starting script");
-    var url = "/data/hrsl_mwi_downsample.tif";
-    var xhr = new XMLHttpRequest();
-    xhr.open('GET', url, true);
-    xhr.responseType = 'arraybuffer';
-    xhr.onload = function(e) {
-      console.log("Loading GeoTIFF...")
-      var tiff = GeoTIFF.parse(this.response);
-      var image = tiff.getImage();
-      var metadata = image.getGDALMetadata()
+    //var url = "/data/hrsl_mwi_downsample.tif";
 
-      var extent = [
-                    metadata.minX, metadata.minY,
-                    metadata.maxX, metadata.maxY
-                   ]  //[15.05, 47.75, 15.40, 47.95]
-      console.log(extent);
-      var plot;
-      var map = null;
-      var canvas;
+    var METADATA = "/data/hrsl_mwi/metadata.json";
+    var projection = ol.proj.get('EPSG:4326');
 
-      //var rasterInput = {window: [0, 0, image.getWidth(), image.getHeight()], samples: [0]}
-      image.readRasters({}, function(rasters) {
-        var raster = rasters[0]
-        canvas = document.createElement("canvas");
-        plot = new plotty.plot({
-          canvas: canvas,
-          data: raster,
-          width: image.getWidth(),
-          height: image.getHeight(),
-          domain: [0, 12],
-          colorScale: "copper"
-        });
-        plot.setClamp(true,true);
-        plot.setNoDataValue(0);
-
-        plot.render();
-        var projection = ol.proj.get('EPSG:4326');
-        var centerPos = [parseFloat(extent[0]).toFixed(5), parseFloat(extent[1]).toFixed(5) ];
-        console.log(centerPos)
-        var attribution = new ol.Attribution({
-          html: 'Tiles &copy; <a href="http://services.arcgisonline.com/ArcGIS/' +
-              'rest/servicesWorld_Light_Gray_Base/MapServer">ArcGIS</a>'
-        });
-
-        canvas.getContext("webgl").fillStyle = 'rgba(255, 255, 255, 0)';
-        mapLayers = [
-          new ol.layer.Tile({
-              source: new ol.source.XYZ({
-                attributions: [attribution],
-                url: 'http://server.arcgisonline.com/ArcGIS/rest/services/' +
-                  '/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}'
-              }),
-              opacity: 1
-          }),
-          new ol.layer.Tile({
-              source: new ol.source.XYZ({
-                attributions: [attribution],
-                url: 'http://server.arcgisonline.com/ArcGIS/rest/services/' +
-                  '/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}'
-              }),
-              opacity: 0.2
-          }),
-          new ol.layer.Image({
-            source: new ol.source.ImageStatic({
-              url: canvas.toDataURL("image/png"),
-              imageExtent: extent
+    var attribution = new ol.Attribution({
+        html: 'Tiles &copy; <a href="http://services.arcgisonline.com/ArcGIS/' +
+            'rest/servicesWorld_Light_Gray_Base/MapServer">ArcGIS</a>'
+    });
+    var mapLayers = [
+        new ol.layer.Tile({
+            source: new ol.source.XYZ({
+            attributions: [attribution],
+            url: 'http://server.arcgisonline.com/ArcGIS/rest/services/' +
+                '/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}'
             }),
-            extent: extent,
             opacity: 1
-          })
-        ]
+        }),
+        new ol.layer.Tile({
+            source: new ol.source.XYZ({
+            attributions: [attribution],
+            url: 'http://server.arcgisonline.com/ArcGIS/rest/services/' +
+                '/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}'
+            }),
+            opacity: 0.2
+        })
+    ];
 
-        var zIndex = 3
-        mapLayers.forEach(function(layer){
-            layer.setZIndex(zIndex--);
-        });
+    var zIndex = 3
+    mapLayers.forEach(function(layer){
+        layer.setZIndex(zIndex--);
+    });
 
-        map = new ol.Map({
-          target: document.getElementById("map"),
-          controls: ol.control.defaults({attribution: false})   ,
-          layers: mapLayers,
-          view: new ol.View({
+    var map = new ol.Map({
+        target: document.getElementById("map"),
+        controls: ol.control.defaults({attribution: false}),
+        layers: mapLayers,
+        view: new ol.View({
             center: [0,0],
             projection: projection,
-            zoom: 5,
-            // extent: extent
+            zoom: 5
+        })
+    });
+
+    loadRasters(METADATA);
+
+    function combinedCoord(tile, dim) {
+        return parseFloat(tile["min" + dim]) +
+               parseFloat(tile["max" + dim]);
+    }
+
+    function loadRasters() {
+        fetch(METADATA)
+        .then(function(response){
+            return response.json();
+        })
+        .then(function(json){
+
+            var centerX;
+            var centerY;
+            var count = 0;
+
+            for (var key in json){
+                var tile = json[key];
+                var url = "/"+tile["path"];
+                //console.log(tile);
+                centerX = combinedCoord(tile, "X");
+                centerY = combinedCoord(tile, "Y");
+                count += 2
+                loadRaster(url);
+            }
+            centerX = centerX/count;
+            centerY = centerY/count;
+            console.log(centerX, centerY)
+            map.getView().setCenter([centerX, centerY]);
+        });
+    }
+
+    function loadRaster(url) {
+        fetch(url)
+        .then(function(response){
+            return response.arrayBuffer();
+        })
+        .then(function(arraybuffer){
+        
+        console.log("Loading GeoTIFF..." + url);
+
+        var tiff = GeoTIFF.parse(arraybuffer);
+        var image = tiff.getImage();
+        var metadata = image.getGDALMetadata();
+        console.log(metadata);
+
+        var extent = [
+            metadata.minX, metadata.minY,
+            metadata.maxX, metadata.maxY
+        ]  //[15.05, 47.75, 15.40, 47.95]
+
+        console.log(extent);
+
+        //var rasterInput = {window: [0, 0, image.getWidth(), image.getHeight()], samples: [0]}
+        image.readRasters({}, function(rasters) {
+            
+            var raster = rasters[0];
+
+            var canvas = document.createElement("canvas");
+            canvas.getContext("webgl").fillStyle = 'rgba(255, 255, 255, 0)';
+
+            var plot = new plotty.plot({
+                canvas: canvas,
+                data: raster,
+                width: image.getWidth(),
+                height: image.getHeight(),
+                domain: [0, 12],
+                colorScale: "copper"
+            });
+            plot.setClamp(true,true);
+            plot.setNoDataValue(0);
+            plot.render();
+
+            var rasterLayer = new ol.layer.Image({
+                source: new ol.source.ImageStatic({
+                    url: canvas.toDataURL("image/png"),
+                    imageExtent: extent
+                }),
+                // extent: extent,
+                opacity: 1
             })
+            map.addLayer(rasterLayer);
+        });
         });
 
-      });
+    } // End of loadRaster
 
-    }
-    xhr.send();
+
+
+   
 
 </script>
 </body>
