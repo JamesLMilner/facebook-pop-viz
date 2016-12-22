@@ -37,7 +37,7 @@ The data will now be in the 'data' folder.
 
 We can use a web browser to examine the data. To setup the project install node.js and npm. You can then do:
 
-    cd src
+    cd demo
     npm install
 
 To get a hot reloading web server that will display the data you can run:
@@ -45,7 +45,7 @@ To get a hot reloading web server that will display the data you can run:
     npm install -g live-server
     live-server
 
- You just have to change the url variable in the index.html file to the appropriate tif file:
+ Make sure you run this from the repo root directory. Then you just have to change the url variable in the index.html file to the appropriate tif file:
 
 
 ```javascript
