@@ -1,7 +1,16 @@
 import os
 import sys
 import traceback
+import json
 from osgeo import gdal, osr
+
+OUTPUT_FOLDER = "data"
+
+def write_metadata_json(path, metadata):
+
+    with open(os.path.join(OUTPUT_FOLDER, path, 'metadata.json'), 'w') as outfile:
+        json.dump(metadata, outfile, indent=4, sort_keys=True)
+
 
 def get_extent(dataset):
 
@@ -15,12 +24,13 @@ def get_extent(dataset):
     maxy = transform[3]
 
     return {
-            "minX": str(minx), "maxX": str(maxx),
-            "minY": str(miny), "maxY": str(maxy),
-            "cols": str(cols), "rows": str(rows)
-            }
+        "minX": str(minx), "maxX": str(maxx),
+        "minY": str(miny), "maxY": str(maxy),
+        "cols": str(cols), "rows": str(rows)
+    }
 
 def create_tiles(minx, miny, maxx, maxy, n):
+
     width = maxx - minx
     height = maxy - miny
 
@@ -40,6 +50,7 @@ def create_tiles(minx, miny, maxx, maxy, n):
 
 
 def split(file_name, n):
+
     print "Splitting ", file_name, "into ", n, " pieces"
     raw_file_name = os.path.splitext(os.path.basename(file_name))[0].replace("_downsample", "")
     driver = gdal.GetDriverByName('GTiff')
@@ -60,10 +71,10 @@ def split(file_name, n):
     miny = float(extent["minY"])
     maxy = float(extent["maxY"])
 
-    width = maxx - minx
-    height = maxy - miny
+    # width = maxx - minx
+    # height = maxy - miny
 
-    output_path = os.path.join("data", raw_file_name)
+    output_path = os.path.join(OUTPUT_FOLDER, raw_file_name)
     if not os.path.exists(output_path):
         os.makedirs(output_path)
 
@@ -73,14 +84,15 @@ def split(file_name, n):
 
     tiles = create_tiles(minx, miny, maxx, maxy, n)
     transform = dataset.GetGeoTransform()
-    xOrigin = transform[0]
-    yOrigin = transform[3]
-    pixelWidth = transform[1]
-    pixelHeight = -transform[5]
+    x_origin = transform[0]
+    y_origin = transform[3]
+    pixel_width = transform[1]
+    pixel_height = -transform[5]
 
-    print xOrigin, yOrigin
+    print x_origin, y_origin
 
     tile_num = 0
+    metadata = {}
     for tile in tiles:
 
         minx = tile[0][0]
@@ -91,10 +103,10 @@ def split(file_name, n):
         p1 = (minx, maxy)
         p2 = (maxx, miny)
 
-        i1 = int((p1[0] - xOrigin) / pixelWidth)
-        j1 = int((yOrigin - p1[1])  / pixelHeight)
-        i2 = int((p2[0] - xOrigin) / pixelWidth)
-        j2 = int((yOrigin - p2[1]) / pixelHeight)
+        i1 = int((p1[0] - x_origin) / pixel_width)
+        j1 = int((y_origin - p1[1])  / pixel_height)
+        i2 = int((p2[0] - x_origin) / pixel_width)
+        j2 = int((y_origin - p2[1]) / pixel_height)
 
         print i1, j1
         print i2, j2
@@ -106,15 +118,15 @@ def split(file_name, n):
 
         #print data
 
-        new_x = xOrigin + i1*pixelWidth
-        new_y = yOrigin - j1*pixelHeight
+        new_x = x_origin + i1*pixel_width
+        new_y = y_origin - j1*pixel_height
 
         print new_x, new_y
 
         new_transform = (new_x, transform[1], transform[2], new_y, transform[4], transform[5])
 
         output_file_base = raw_file_name + "_" + str(tile_num) + ".tif"
-        output_file = os.path.join("data", raw_file_name, output_file_base)
+        output_file = os.path.join(OUTPUT_FOLDER, raw_file_name, output_file_base)
 
         dst_ds = driver.Create(output_file,
                                new_cols,
@@ -122,31 +134,37 @@ def split(file_name, n):
                                1,
                                gdal.GDT_Float32)
 
-        #writting output raster
-        dst_ds.GetRasterBand(1).WriteArray( data )
+        # Writing output raster
+        dst_ds.GetRasterBand(1).WriteArray(data)
 
-        tif_metadata = {
-            "minX": str(minx), "maxX": str(maxx),
-            "minY": str(miny), "maxY": str(maxy)
-        }
-        dst_ds.SetMetadata(tif_metadata)
+        # Set file-level metadata
+        tile_extent = get_extent(dataset)
+        dataset.SetMetadata(tile_extent)
 
-        #setting extension of output raster
+        # Setting extension of output raster
         # top left x, w-e pixel resolution, rotation, top left y, rotation, n-s pixel resolution
         dst_ds.SetGeoTransform(new_transform)
 
         wkt = dataset.GetProjection()
 
-        # setting spatial reference of output raster
+        # Setting spatial reference of output raster
         srs = osr.SpatialReference()
         srs.ImportFromWkt(wkt)
-        dst_ds.SetProjection( srs.ExportToWkt() )
+        export_prj = srs.ExportToWkt()
+        dst_ds.SetProjection(export_prj)
 
-        #Close output raster dataset
+        # Close output raster dataset
         dst_ds = None
+
+        # Set our metadata info for this tile
+        metadata[tile_num] = extent
+        metadata[tile_num]["fileSize"] = os.path.getsize(output_file)
+
+
 
         tile_num += 1
 
+    write_metadata_json(raw_file_name, metadata)
     dataset = None
 
 if __name__ == '__main__':
