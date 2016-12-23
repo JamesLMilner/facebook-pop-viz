@@ -27,7 +27,7 @@
             url: 'http://server.arcgisonline.com/ArcGIS/rest/services/' +
                 '/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}'
             }),
-            opacity: 0.2
+            opacity: 0.4
         })
     ];
 
@@ -141,10 +141,10 @@
                 return response.arrayBuffer();
             })
             .then(function(arraybuffer){
-                
+
                 console.debug("Loading GeoTIFF..." + url);
                 var tiff = GeoTIFF.parse(arraybuffer);
-                
+
                 addRaster(tiff, "copper");
 
                 resolve(tiff);
