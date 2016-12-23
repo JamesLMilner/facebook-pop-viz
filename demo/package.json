@@ -4,6 +4,7 @@
   "description": "Visualising Facebook population data on the web",
   "main": "index.js",
   "dependencies": {
+    "es6-promise": "^4.0.5",
     "geotiff": "^0.3.5",
     "openlayers": "^3.20.0",
     "plotty": "^0.1.2",
